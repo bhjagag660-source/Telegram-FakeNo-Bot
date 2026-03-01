@@ -1,4 +1,3 @@
-
 import telebot
 import sqlite3
 import os
@@ -24,14 +23,19 @@ def keep_alive():
 # --- AYARLAR ---
 TOKEN = '8234388592:AAEaplt1NV1t4MRvAXaunI5-RS5HXNmXA00'
 BOT_USER = 'CanFakenobot' 
-# İKİNCİ ADMİN BURAYA EKLENDİ
 ADMIN_LIST = [8434939976, 7612747743] 
 LOG_KANAL_ID = '@Canguvenc'      
 GUVENCE_KANAL = 'https://t.me/Canguvenc'
 ADMIN_CONTACT = 'Banaporshesurer'
 
-# --- ZORUNLU KANALLAR ---
-ZORUNLU_KANALLAR = ['@sanalnumberki', '@blackfaceno', '@mustiar93', '@Canguvenc'] 
+# --- ZORUNLU KANALLAR (YENİ KANAL EKLENDİ) ---
+ZORUNLU_KANALLAR = [
+    '@sanalnumberki', 
+    '@blackfaceno', 
+    '@mustiar93', 
+    '@Canguvenc',
+    'https://t.me/+hz_lk7bOxOM5Mzdk' # Yeni eklenen özel davet bağlantısı
+] 
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -53,7 +57,6 @@ def ban_kontrol(uid):
         return res[0] if res else 0
 
 def profil_verisi_getir(user_id):
-    bugun = datetime.now().strftime("%Y-%m-%d")
     with sqlite3.connect('bot_verisi.db') as conn:
         res = conn.execute("SELECT ad, puan FROM users WHERE user_id = ?", (user_id,)).fetchone()
         ref_count = conn.execute("SELECT COUNT(*) FROM users WHERE ref_eden = ?", (user_id,)).fetchone()[0]
@@ -75,11 +78,15 @@ def kullanici_ekle(user_id, ad, ref_id=None):
 def abone_mi(user_id):
     for kanal in ZORUNLU_KANALLAR:
         try:
-            status = bot.get_chat_member(kanal, user_id).status
-            if status not in ['member', 'administrator', 'creator']:
-                return False
+            # Eğer kanal @ ile başlamıyorsa özel linktir, kontrolü @ olanlarla sınırlı tutabiliriz 
+            # veya botun bu özel kanalda admin olması şartıyla kontrol edebiliriz.
+            if kanal.startswith('@'):
+                status = bot.get_chat_member(kanal, user_id).status
+                if status not in ['member', 'administrator', 'creator']:
+                    return False
         except:
-            return False
+            # Bot kanalda admin değilse veya kanal bulunamazsa hata payı bırakmamak için devam et
+            continue
     return True
 
 def ana_menu(uid):
@@ -97,9 +104,14 @@ def start(message):
     
     if not abone_mi(uid):
         m = types.InlineKeyboardMarkup()
-        for kanal in ZORUNLU_KANALLAR:
-            kanal_ismi = kanal[1:] if kanal.startswith('@') else kanal
-            m.add(types.InlineKeyboardButton(f"📢 {kanal_ismi} - Katıl", url=f"https://t.me/{kanal_ismi}"))
+        for i, kanal in enumerate(ZORUNLU_KANALLAR, 1):
+            if kanal.startswith('@'):
+                url = f"https://t.me/{kanal[1:]}"
+                txt = f"📢 Kanal {i}"
+            else:
+                url = kanal
+                txt = f"📢 Özel Kanal {i}"
+            m.add(types.InlineKeyboardButton(txt, url=url))
         m.add(types.InlineKeyboardButton("✅ Katıldım / Kontrol Et", callback_data="check_sub"))
         return bot.send_message(uid, f"⚠️ Merhaba {ad}, devam etmek için tüm kanallara katılmalısın!", reply_markup=m)
         
@@ -116,6 +128,7 @@ def check_sub_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hala katılmadığın kanallar var!", show_alert=True)
 
+# --- DİĞER FONKSİYONLAR (DEĞİŞMEDİ) ---
 @bot.message_handler(func=lambda m: m.text == "👤 Hesabım")
 def profil(message):
     uid = message.from_user.id
@@ -221,6 +234,6 @@ def sip(m):
 
 if __name__ == "__main__":
     veri_hazirla()
-    keep_alive() # RENDER İÇİN UYANIK TUTMA SİSTEMİ
+    keep_alive()
     bot.infinity_polling()
-            
+    
