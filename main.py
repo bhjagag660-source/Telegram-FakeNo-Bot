@@ -1,7 +1,7 @@
 import telebot
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from telebot import types
 from flask import Flask
 from threading import Thread
@@ -25,7 +25,7 @@ TOKEN = '8234388592:AAEaplt1NV1t4MRvAXaunI5-RS5HXNmXA00'
 BOT_USER = 'CanFakenobot' 
 ADMIN_LIST = [8434939976, 7612747743] 
 LOG_KANAL_ID = '@Canguvenc'      
-GUVENCE_KANAL = 'https://t.me/Canguvenc' # Burayı düzelttim
+GUVENCE_KANAL = 'https://t.me/Canguvenc'
 ADMIN_CONTACT = 'Banaporshesurer'
 
 # --- ZORUNLU KANALLAR ---
@@ -38,6 +38,22 @@ ZORUNLU_KANALLAR = [
 ] 
 
 bot = telebot.TeleBot(TOKEN)
+
+# --- YENİ: PROFİL YAZISINI GÜNCELLEME FONKSİYONU ---
+def profil_yazisini_guncelle():
+    """Botun isminin altındaki 'About' kısmını otomatik günceller."""
+    ay_once = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with sqlite3.connect('bot_verisi.db', check_same_thread=False) as conn:
+            cursor = conn.cursor()
+            toplam = cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            aylik = cursor.execute("SELECT COUNT(*) FROM users WHERE kayit_tarihi > ?", (ay_once,)).fetchone()[0]
+        
+        # Fotoğraftaki gibi görünmesi için metni ayarla
+        yeni_hakkinda = f"{aylik:,} aylık kullanıcı | {toplam:,} toplam üye"
+        bot.set_my_short_description(yeni_hakkinda)
+    except:
+        pass
 
 # --- FONKSİYONLAR ---
 def veri_hazirla():
@@ -77,15 +93,14 @@ def kullanici_ekle(user_id, ad, ref_id=None):
         cursor = conn.cursor()
         check = cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,)).fetchone()
         if check is None:
-            # Kendi referansıyla girmeyi engelle
             if ref_id and str(ref_id) == str(user_id): ref_id = None
-            
             cursor.execute("INSERT INTO users (user_id, ad, ref_eden, puan, ban, kayit_tarihi) VALUES (?, ?, ?, 0, 0, ?)", (user_id, ad, ref_id, simdi))
             if ref_id and str(ref_id).isdigit():
                 cursor.execute("UPDATE users SET puan = puan + 1 WHERE user_id = ?", (ref_id,))
                 try: bot.send_message(ref_id, "🎉 Referansınla biri katıldı! +1 Jeton kazandın.")
                 except: pass
             conn.commit()
+            profil_yazisini_guncelle() # Yeni kullanıcıda profili tazele
 
 def profil_verisi_getir(user_id, ad):
     kullanici_ekle(user_id, ad)
@@ -103,7 +118,7 @@ def ana_menu(uid):
         markup.add("⚙️ Admin Paneli")
     return markup
 
-# --- KOMUTLAR ---
+# --- KOMUTLAR VE DİĞERLERİ (BAKİ KALDI) ---
 @bot.message_handler(commands=['start'])
 def start(message):
     uid, ad = message.from_user.id, (message.from_user.first_name or "Kullanıcı")
@@ -111,6 +126,7 @@ def start(message):
     ref_id = args[1] if len(args) > 1 else None
     kullanici_ekle(uid, ad, ref_id)
     if not abone_mi(uid): return zorunlu_kanal_mesaji(message)
+    profil_yazisini_guncelle() # Her startta veriyi tazele
     bot.send_message(uid, f"👋 Hoş geldin {ad}!", reply_markup=ana_menu(uid))
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_sub")
@@ -122,7 +138,6 @@ def check_sub_callback(call):
     else:
         bot.answer_callback_query(call.id, "❌ Hala katılmadığın kanallar var!", show_alert=True)
 
-# --- BUTON KONTROLLERİ ---
 @bot.message_handler(func=lambda m: m.text == "👤 Hesabım")
 def profil(message):
     if not abone_mi(message.from_user.id): return zorunlu_kanal_mesaji(message)
@@ -164,7 +179,7 @@ def sip(message):
         data = conn.execute("SELECT urun, durum FROM satislar WHERE user_id = ? ORDER BY id DESC LIMIT 5", (message.from_user.id,)).fetchall()
     bot.send_message(message.chat.id, "📦 Sipariş Geçmişin:\n" + "\n".join([f"- {s[0]}: {s[1]}" for s in data]) if data else "Henüz siparişin yok.")
 
-# --- SATIN ALMA VE ADMİN SİSTEMİ ---
+# (Satın alma, Admin onay ve Jeton işlemleri yukarıdaki kodun aynısıdır...)
 @bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
 def satin_al(call):
     if not abone_mi(call.from_user.id): return bot.answer_callback_query(call.id, "⚠️ Önce kanallara katılmalısın!", show_alert=True)
@@ -246,8 +261,10 @@ def duyuru_gonder(message):
         except: pass
     bot.send_message(message.chat.id, f"✅ Duyuru {count} kişiye gönderildi.")
 
+# --- ANA ÇALIŞTIRICI ---
 if __name__ == "__main__":
     veri_hazirla()
     keep_alive()
-    bot.infinity_polling(timeout=20, long_polling_timeout=10)
-    
+    profil_yazisini_guncelle() # Bot açılırken profil yazısını tazele
+    # skip_pending=True Render çakışmalarını önler
+    bot.infinity_polling(timeout=20, long_polling_timeout=10, skip_pending=True)
