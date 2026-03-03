@@ -31,10 +31,10 @@ ADMIN_CONTACT = 'Banaporshesurer'
 # --- ZORUNLU KANALLAR ---
 ZORUNLU_KANALLAR = [
     '@sanalnumberki', 
-    '@blackfaceno', 
     '@mustiar93', 
+    '@fransaarsiv', 
     '@Canguvenc',
-    'https://t.me/+hz_lk7bOxOM5Mzdk' 
+    
 ] 
 
 bot = telebot.TeleBot(TOKEN)
