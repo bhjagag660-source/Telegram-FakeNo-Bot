@@ -29,15 +29,18 @@ GUVENCE_KANAL = 'https://t.me/Canguvenc'
 ADMIN_CONTACT = 'Banaporshesurer'
 
 # --- ZORUNLU KANALLAR ---
+# Not: Kullanıcı adı olanlar tırnak içinde (@...), 
+# Gizli kanal ID'leri tırnaksız ve -100 ile başlar.
 ZORUNLU_KANALLAR = [
     '@sanalnumberki', 
     '@mustiar93', 
-    '@fransaarsiv', 
     '@Canguvenc',
-    
+    -1003803227786
 ] 
 
+# Botu başlatma (TOKEN değişkeninin yukarıda tanımlı olduğundan emin ol)
 bot = telebot.TeleBot(TOKEN)
+
 
 # --- YENİ: PROFİL YAZISINI GÜNCELLEME FONKSİYONU ---
 def profil_yazisini_guncelle():
